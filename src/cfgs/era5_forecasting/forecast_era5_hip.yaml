@@ -1,0 +1,69 @@
+_base_:
+  - cfgs/env/cluster.yaml
+  - cfgs/trainers/ae.yaml
+
+trainer: era5_forecast_trainer
+
+stage1_dir: /ABS/PATH/TO/STAGE1_RUN_DIR
+latents_subdir: extract/latents_era5_tc
+
+manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+stage1_ckpt: ${stage1_dir}/best-model.pth
+
+era5_root: /scratch/htc/aurbano/datasets/era5
+
+ckpt_select_metric:
+  name: Tt1_mse
+  type: min
+
+visualize: { resolution: 0, ds_samples: 0 }
+
+auto_schedule: true
+train_epochs: 500
+eval_every_epochs: 5
+
+use_amp: false
+use_compile: false
+
+datasets:
+  train:
+    name: era5_temporal_latents
+    args:
+      manifest_path: ${manifest_path}
+      split: train
+      era5_root: ${era5_root}
+      normalize: true
+      norm_scale: 1.0
+    loader: { batch_size: 128, num_workers: 4 }
+
+  val:
+    name: era5_temporal_latents
+    args:
+      manifest_path: ${manifest_path}
+      split: val
+      era5_root: ${era5_root}
+      normalize: true
+      norm_scale: 1.0
+    loader: { batch_size: 128, num_workers: 4 }
+
+model:
+  name: hip_forecaster
+  args:
+    num_groups: from_manifest
+    tokens_per_group: from_manifest
+    token_dim: from_manifest
+    coord_dim: 3
+    hidden_dim: 256
+    depth: 3
+    self_attend_layers: 4
+    num_heads: 4
+    dropout: 0.0
+    pos_max_freq: 10.0
+    predict_residual: true
+
+optimizers:
+  encoder:
+    name: adamw
+    args: { lr: 8.391e-5, betas: [0.9, 0.99], weight_decay: 3.933e-3 }
+  decoder: null
+  renderer: null

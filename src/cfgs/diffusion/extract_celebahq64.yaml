@@ -1,0 +1,70 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: hip_latent_extract_trainer
+
+datasets:
+  train:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: celebahq
+        args:
+          split: train
+          root_path: /scratch/htc/aurbano/datasets/celeba_hq_256
+          img_folder: null
+          val_fraction: 0.1
+          test_fraction: 0.1
+          seed: 0
+          min_side_floor: 64
+      resize_inp: 64
+      resize_gt_lb: 64
+      resize_gt_ub: 64
+      final_crop_gt: 64
+      gt_n_query: 0
+      gt_replace: false
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: 128
+      num_workers: 8
+
+  val:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: celebahq
+        args:
+          split: val
+          root_path: /scratch/htc/aurbano/datasets/celeba_hq_256
+          img_folder: null
+          val_fraction: 0.1
+          test_fraction: 0.1
+          seed: 0
+          min_side_floor: 64
+      resize_inp: 64
+      resize_gt_lb: 64
+      resize_gt_ub: 64
+      final_crop_gt: 64
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: 128
+      num_workers: 8
+
+extract:
+  stage1_ckpt: /ABS/PATH/TO/STAGE1/best-model.pth
+
+  out_root: from_stage1_ckpt
+  out_subdir: extract/latents_celebahq64_tc
+  stats_mode: token_channel
+  splits: [train, val]
+  block: last
+
+  shard_size: 1024
+  batch_size: 128
+  num_workers: 8
+
+  save_dtype: float16
+  use_amp: false
+

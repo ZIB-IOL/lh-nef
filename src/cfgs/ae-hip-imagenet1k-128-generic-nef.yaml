@@ -1,0 +1,201 @@
+_base_:
+  - cfgs/env/cluster.yaml
+  - cfgs/trainers/ae.yaml
+
+ckpt_select_metric:
+  name: psnr
+  type: max
+
+visualize:
+  resolution: 256
+  ds_samples: 16
+
+use_amp: false
+use_compile: false
+
+# ImageNet-1k uses manual iteration counts (not epoch-based).
+auto_schedule: false
+epoch_iter: 2500
+max_iter: 1000000
+eval_iter: 7500
+vis_iter: 7500
+save_iter: 7500
+
+save_last_ckpt: true
+save_last_iter: 250
+
+# Val renders full 256x256 grid (65536 queries) — keep batch size small.
+eval_batch_size: 4
+
+visualize_subset:
+  enable: true
+  n_samples: 128
+  seed: 0
+  batch_size: ${eval_batch_size}
+  num_workers: 0
+
+eval_subset:
+  enable: true
+  n_samples: 2048
+  seed: 0
+
+train_psnr_proxy:
+  enable: true
+  every_epochs: 1
+  n_samples: 256
+  batch_size: ${eval_batch_size}
+  num_workers: 0
+
+hrft_start_after_iters: null
+
+datasets:
+  train:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: imagenet_labeled
+        args:
+          split: train
+          root_path: /scratch/llm/ais2t/datasets/pytorch/imagenet
+          return_label: true
+          min_side_floor: 256
+          train_val_split: train
+          train_val_fraction: 0.99
+          train_val_seed: 0
+      # Encoder sees 128x128; GT/renderer at 256x256. Coords are in [-1,1]^2.
+      resize_inp: 128
+      resize_gt_lb: 256
+      resize_gt_ub: 256
+      final_crop_gt: 256
+      gt_n_query: 16384
+      gt_replace: false
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: 32
+      num_workers: 8
+
+  val:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: imagenet_labeled
+        args:
+          split: train
+          root_path: /scratch/llm/ais2t/datasets/pytorch/imagenet
+          return_label: true
+          min_side_floor: 256
+          train_val_split: val
+          train_val_fraction: 0.99
+          train_val_seed: 0
+      # Val: same encoder input (128), full-grid GT at 256x256 for PSNR.
+      resize_inp: 128
+      resize_gt_lb: 256
+      resize_gt_ub: 256
+      final_crop_gt: 256
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: ${eval_batch_size}
+      num_workers: 8
+
+  # Official ImageNet val/ split for final reporting.
+  test:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: imagenet_labeled
+        args:
+          split: val
+          root_path: /scratch/llm/ais2t/datasets/pytorch/imagenet
+          return_label: true
+          min_side_floor: 256
+      resize_inp: 128
+      resize_gt_lb: 256
+      resize_gt_ub: 256
+      final_crop_gt: 256
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: ${eval_batch_size}
+      num_workers: 8
+
+model:
+  name: lhnef
+  args:
+
+    z_shape: [1, 1, 1]
+
+    encoder:
+      name: encoder_hip_coord_value
+      args:
+        coord_dim: 2
+        value_dim: 3
+        z_channels: 1
+        z_hw: [1, 1]
+        hip_variant: IN128_G128_K4_C28
+        num_embedding_channels: 64
+        pos_encoding: fourier
+        fourier_bands: 32
+        fourier_max_freq: 40.0
+        coord_grouping: voxel
+        coord_bits: 10
+        hip_run_decoder: false
+        render_block_index: -1
+
+    decoder: null
+
+    renderer:
+      name: renderer_hip_encoder_group_field
+      args:
+        coord_dim: 2
+        head_kind: point_mlp
+        out_dim: 3
+        point_hidden: 768
+        point_depth: 4
+
+        d_model: 256
+        n_heads: 8
+        dropout: 0.0
+        sdpa_backend: auto
+
+        routing_mode: knn
+        knn_k: 4
+        knn_p: 1.0
+        knn_eps: 1e-6
+
+        knn_weighting: gaussian
+        knn_gaussian_sigma: 0.5
+        knn_gaussian_sigma_learnable: true
+
+        knn_cap_small_groups: false
+        knn_small_groups_threshold: 8
+        knn_small_groups_k: 1
+
+        fusion: gated_sum
+        gated_sum_stream: true
+        use_liif_geometry: false
+        rel_pe_dim: 16
+        rel_pe_w_max: 10.0
+
+        value_film: true
+        value_film_pe_dim: 16
+        value_film_pe_w_max: 10.0
+        value_film_hidden: 256
+
+        coord_pe_dim: 16
+        coord_pe_w_max: 10.0
+        cell_pe_dim: 32
+        cell_pe_w_max: 10.0
+
+    loss_cfg:
+      l1_loss: 1.0
+
+optimizers:
+  encoder:
+    name: adamw
+    args: { lr: 5.467e-4, betas: [0.9, 0.99], weight_decay: 0.01666 }
+  decoder: null
+  renderer:
+    name: adam
+    args: { lr: 1.554e-4, betas: [0.5, 0.9] }

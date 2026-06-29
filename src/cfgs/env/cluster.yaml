@@ -1,0 +1,17 @@
+_env:
+  exp_group: lhnef
+  exp_name: ${oc.env:LHNEF_EXP_NAME,${oc.env:INFD_EXP_NAME,lhnef}}
+
+  save_root: /scratch/htc/aurbano/nefs_replearning_runs
+  save_dir: ${_env.save_root}/${_env.exp_group}/${_env.exp_name}
+
+  resume_mode: replace
+  auto_unique: true
+
+  wandb: true
+
+save_last_ckpt: false
+
+random_seed: 42
+
+

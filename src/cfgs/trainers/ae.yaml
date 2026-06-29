@@ -1,0 +1,28 @@
+trainer: lhnef_trainer
+
+max_iter: 195000
+epoch_iter: 390
+eval_iter: 9750
+save_iter: 19500
+vis_iter: 9750
+ckpt_select_metric:
+  name: psnr
+  type: max
+
+optimizers:
+  encoder:
+    name: adam
+    args: {lr: 3.6e-5, betas: [0.5, 0.9]}
+  decoder:
+    name: adam
+    args: {lr: 3.6e-5, betas: [0.5, 0.9]}
+  renderer:
+    name: adam
+    args: {lr: 3.6e-5, betas: [0.5, 0.9]}
+hrft_start_after_iters: null
+find_unused_parameters: true
+
+visualize:
+  resolution: 256
+  ds_samples: 16
+  ae_center_zoom_res: 1024

@@ -1,0 +1,73 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: hip_latent_extract_trainer
+
+datasets:
+  train:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: shapenet16_vox_occ
+        args:
+          split: train
+          root_path: /scratch/htc/aurbano/datasets/shapenet16_vox_occ_32
+          n_inp: 4096
+          n_query: 4096
+          balance_inp: true
+          balance_query: false
+          occ_to_pm1: true
+          return_label: true
+    loader:
+      batch_size: 256
+      num_workers: 8
+
+  val:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: shapenet16_vox_occ
+        args:
+          split: val
+          root_path: /scratch/htc/aurbano/datasets/shapenet16_vox_occ_32
+          n_inp: 4096
+          n_query: 4096
+          balance_inp: true
+          balance_query: false
+          occ_to_pm1: true
+          return_label: true
+    loader:
+      batch_size: 256
+      num_workers: 8
+
+  test:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: shapenet16_vox_occ
+        args:
+          split: test
+          root_path: /scratch/htc/aurbano/datasets/shapenet16_vox_occ_32
+          n_inp: 4096
+          n_query: 4096
+          balance_inp: true
+          balance_query: false
+          occ_to_pm1: true
+          return_label: true
+    loader:
+      batch_size: 256
+      num_workers: 8
+
+extract:
+  stage1_ckpt: /ABS/PATH/TO/STAGE1/best-model.pth
+  out_root: from_stage1_ckpt
+  out_subdir: extract/latents_shapenet16_tc_cls
+  stats_mode: token_channel
+  splits: [train, val, test]
+  block: last
+  shard_size: 2048
+  batch_size: 256
+  num_workers: 8
+  save_dtype: float32
+  use_amp: false
+  save_labels: true

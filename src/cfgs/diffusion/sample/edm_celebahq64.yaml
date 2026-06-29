@@ -1,0 +1,48 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+# EDM sampling + FID evaluation for HiP-DiT CelebA-HQ-64.
+# sigma_data, P_mean, P_std, sigma_min, sigma_max, rho are read from the loaded
+# ckpt's cfg.dm.* fields (trainer persists resolved-numeric sigma_data into the saved cfg).
+# Override with sample.sigma_data only if you need to deviate from the training-time value.
+
+trainer: hip_token_sample_trainer
+
+save_root: from_stage1_dir
+
+stage1_dir: /scratch/htc/aurbano/nefs_replearning_runs/imagenet100/imagenet100-ae-20260405-183250-8331
+latents_subdir: extract/latents_celebahq64_tc
+
+sample:
+  # Default points at the iter-75.2k 'best' (dm_loss_ema-selected) checkpoint of
+  # the lhnef-20260526-173043-be41 EDM run. Sweep overrides via --sample.dm_ckpt.
+  dm_ckpt: ${stage1_dir}/lhnef-20260526-173043-be41/best-model.pth
+  latents_manifest: ${stage1_dir}/${latents_subdir}/manifest.json
+  latents_split: train
+  stage1_ckpt: ${stage1_dir}/best-model.pth
+
+  input_res: 64
+  render_res: 64
+
+  framework: edm
+  sampler: edm_heun
+  steps: 18
+
+  n_samples: 50000
+  batch_size: 512
+
+  norm_scale: 1.0
+  use_ema: true
+
+  outdir: samples
+  save_grid: true
+  grid_n: 64
+
+  eval:
+    enable: true
+    real_dir: /scratch/htc/aurbano/datasets/celebahq64_fid_samples
+    fid: true
+    isc: true
+    kid: false
+    batch_size: 512
+    cuda: true

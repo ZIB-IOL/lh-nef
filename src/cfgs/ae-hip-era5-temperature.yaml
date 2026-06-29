@@ -1,0 +1,126 @@
+_base_:
+  - cfgs/env/cluster.yaml
+  - cfgs/trainers/ae.yaml
+
+ckpt_select_metric:
+  name: mse
+  type: min
+
+visualize: { resolution: 1, ds_samples: 4 }
+
+auto_schedule: true
+train_epochs: 1600
+eval_every_epochs: 10
+
+use_amp: false
+use_compile: false
+
+hrft_start_after_iters: null
+
+datasets:
+  train:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: era5_temperature
+        args:
+          split: train
+          root_path: /scratch/htc/aurbano/datasets/era5
+          n_inp: 4140
+          n_query: 4140
+          to_pm1: true
+    loader: { batch_size: 64, num_workers: 8 }
+
+  val:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: era5_temperature
+        args:
+          split: val
+          root_path: /scratch/htc/aurbano/datasets/era5
+          n_inp: 4140
+          n_query: 4140
+          to_pm1: true
+    loader: { batch_size: 64, num_workers: 8 }
+
+model:
+  name: lhnef
+  args:
+
+    z_shape: [1, 1, 1]
+
+    encoder:
+      name: encoder_hip_coord_value
+      args:
+        coord_dim: 3
+        value_dim: 1
+        z_channels: 1
+        z_hw: [1, 1]
+        hip_variant: ERA5_G72_K2_C16_3B
+        num_embedding_channels: 128
+        pos_encoding: fourier
+        fourier_bands: 32
+        fourier_max_freq: 20.0
+        coord_grouping: s2
+        normalize_sphere_centers: true
+        hip_run_decoder: false
+        render_block_index: -1
+        hip_cache_group_regions: true
+
+    decoder: null
+
+    renderer:
+      name: renderer_hip_encoder_group_field
+      args:
+        coord_dim: 3
+        head_kind: point_mlp
+        out_dim: 1
+        point_hidden: 192
+        point_depth: 3
+
+        d_model: 128
+        n_heads: 4
+
+        dropout: 0.0
+        sdpa_backend: auto
+
+        routing_mode: knn
+        knn_k: 2
+        knn_p: 1.0
+        knn_eps: 1e-6
+
+        knn_weighting: gaussian
+        knn_gaussian_sigma: 0.35
+        knn_gaussian_sigma_learnable: true
+
+        value_film: true
+        value_film_pe_dim: 8
+        value_film_pe_w_max: 10.0
+        value_film_hidden: 512
+
+        fusion: gated_sum
+        gated_sum_stream: true
+
+        use_liif_geometry: false
+        rel_pe_dim: 16
+        rel_pe_w_max: 10.0
+
+        coord_pe_dim: 32
+        coord_pe_w_max: 10.0
+        cell_pe_dim: 16
+        cell_pe_w_max: 10.0
+
+
+    loss_cfg:
+      l1_loss: 0.0
+      mse_loss: 1.0
+
+optimizers:
+  encoder:
+    name: adamw
+    args: { lr: 1.84e-3, betas: [0.9, 0.99], weight_decay: 6.98e-3 }
+  decoder: null
+  renderer:
+    name: adam
+    args: { lr: 2.72e-4, betas: [0.5, 0.9] }

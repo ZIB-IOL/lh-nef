@@ -1,0 +1,193 @@
+_base_:
+  - cfgs/env/cluster.yaml
+  - cfgs/trainers/ae.yaml
+
+ckpt_select_metric:
+  name: psnr
+  type: max
+
+use_amp: false
+use_compile: false
+
+auto_schedule: true
+train_epochs: 800
+eval_every_epochs: 20
+
+# Full-grid eval renders Q=4096 queries per image; can OOM at large batch sizes.
+eval_batch_size: 100
+test_batch_size: ${eval_batch_size}
+
+train_psnr_proxy:
+  enable: true
+  every_epochs: 1
+  n_samples: 256
+  batch_size: ${eval_batch_size}
+  num_workers: 0
+
+visualize:
+  resolution: 64
+  ds_samples: 16
+
+visualize_subset:
+  enable: true
+  n_samples: 128
+  seed: 0
+  batch_size: ${eval_batch_size}
+  num_workers: 0
+
+hrft_start_after_iters: null
+
+datasets:
+  train:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: celebahq
+        args:
+          split: train
+          root_path: /scratch/htc/aurbano/datasets/celeba_hq_256
+          img_folder: null
+          # Deterministic split from flat folder of 30k images (no official split).
+          val_fraction: 0.1
+          test_fraction: 0.1
+          seed: 0
+          min_side_floor: 64
+      resize_inp: 64
+      resize_gt_lb: 64
+      resize_gt_ub: 64
+      final_crop_gt: 64
+      gt_n_query: 0
+      gt_replace: false
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: 128
+      num_workers: 8
+
+  val:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: celebahq
+        args:
+          split: val
+          root_path: /scratch/htc/aurbano/datasets/celeba_hq_256
+          img_folder: null
+          val_fraction: 0.1
+          test_fraction: 0.1
+          seed: 0
+          min_side_floor: 64
+      resize_inp: 64
+      resize_gt_lb: 64
+      resize_gt_ub: 64
+      final_crop_gt: 64
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: 64
+      num_workers: 8
+  # Held-out test split. BaseTrainer.evaluate() uses 'val'; swap datasets.val to this spec to report on test.
+  test:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: celebahq
+        args:
+          split: test
+          root_path: /scratch/htc/aurbano/datasets/celeba_hq_256
+          img_folder: null
+          val_fraction: 0.1
+          test_fraction: 0.1
+          seed: 0
+          min_side_floor: 64
+      resize_inp: 64
+      resize_gt_lb: 64
+      resize_gt_ub: 64
+      final_crop_gt: 64
+      p_whole: 0.0
+      p_max: 0.0
+    loader:
+      batch_size: ${test_batch_size}
+      num_workers: 8
+
+model:
+  name: lhnef
+  args:
+
+    # Dummy latent grid (unused by renderer); keep minimal.
+    z_shape: [1, 1, 1]
+
+    encoder:
+      name: encoder_hip_coord_value
+      args:
+        coord_dim: 2
+        value_dim: 3
+        z_channels: 1
+        z_hw: [1, 1]
+        hip_variant: CELEBAHQ_64_LAST64_K2_C24
+        num_embedding_channels: 64
+        pos_encoding: fourier
+        fourier_bands: 32
+        fourier_max_freq: 40.0
+        coord_grouping: voxel
+        coord_bits: 10
+        hip_run_decoder: false
+        render_block_index: -1
+        hip_cache_group_regions: true
+
+    decoder: null
+
+    renderer:
+      name: renderer_hip_encoder_group_field
+      args:
+        coord_dim: 2
+        head_kind: point_mlp
+        out_dim: 3
+        point_hidden: 384
+        point_depth: 5
+
+        d_model: 128
+        n_heads: 8
+        dropout: 0.0
+        sdpa_backend: auto
+
+        routing_mode: knn
+        knn_k: 4
+        knn_p: 2.0
+        knn_eps: 1e-6
+        knn_weighting: gaussian          # power | gaussian
+        knn_gaussian_sigma: 0.35
+        knn_gaussian_sigma_learnable: true
+        knn_cap_small_groups: false
+        knn_small_groups_threshold: 8
+        knn_small_groups_k: 1
+
+        fusion: gated_sum
+        gated_sum_stream: true
+        use_liif_geometry: false
+        rel_pe_dim: 16
+        rel_pe_w_max: 10.0
+
+        value_film: true
+        value_film_pe_dim: 16
+        value_film_pe_w_max: 10.0
+        value_film_hidden: 256
+
+        coord_pe_dim: 16
+        coord_pe_w_max: 10.0
+        cell_pe_dim: 16
+        cell_pe_w_max: 10.0
+
+
+    loss_cfg:
+      l1_loss: 1.0
+
+optimizers:
+  encoder:
+    name: adamw
+    args: { lr: 2.806179305103064e-4, betas: [0.9, 0.99], weight_decay: 1.610644136795107e-4 }
+  decoder: null
+  renderer:
+    name: adam
+    args: { lr: 8.994849539761293e-4, betas: [0.5, 0.9] }
+

@@ -1,0 +1,129 @@
+_base_:
+  - cfgs/env/cluster.yaml
+  - cfgs/trainers/ae.yaml
+
+ckpt_select_metric:
+  name: iou
+  type: max
+
+visualize: { resolution: 32, ds_samples: 4 }
+
+auto_schedule: true
+train_epochs: 300
+eval_every_epochs: 5
+
+use_amp: false
+use_compile: false
+
+hrft_start_after_iters: null
+
+datasets:
+  train:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: shapenet16_vox_occ
+        args:
+          split: train
+          root_path: /scratch/htc/aurbano/datasets/shapenet16_vox_occ_32
+          n_inp: 32768
+          n_query: 32768
+          balance_inp: true
+          balance_query: false
+          occ_to_pm1: true
+    loader: { batch_size: 40, num_workers: 8 }
+
+  # val n_inp is auto-synced to match train n_inp at runtime
+  # (see BaseTrainer._sync_n_inp_across_splits).
+  val:
+    name: wrapper_coord_value
+    args:
+      dataset:
+        name: shapenet16_vox_occ
+        args:
+          split: val
+          root_path: /scratch/htc/aurbano/datasets/shapenet16_vox_occ_32
+          n_inp: 4096
+          n_query: 32768
+          balance_inp: true
+          balance_query: false
+          occ_to_pm1: true
+    loader: { batch_size: 40, num_workers: 8 }
+
+model:
+  name: lhnef
+  args:
+
+    z_shape: [1, 1, 1]
+
+    encoder:
+      name: encoder_hip_coord_value
+      args:
+        coord_dim: 3
+        value_dim: 1
+        z_channels: 1
+        z_hw: [1, 1]
+        hip_variant: SN16_G64_K3_C8
+        num_embedding_channels: 64
+        pos_encoding: fourier
+        fourier_bands: 32
+        fourier_max_freq: 20.0
+        coord_grouping: kdtree
+        hip_run_decoder: false
+        render_block_index: -1
+        hip_cache_group_regions: true
+
+    decoder: null
+
+    renderer:
+      name: renderer_hip_encoder_group_field
+      args:
+        coord_dim: 3
+        head_kind: point_mlp
+        out_dim: 1
+        point_hidden: 256
+        point_depth: 4
+
+        d_model: 256
+        n_heads: 8
+        dropout: 0.0
+        sdpa_backend: auto
+
+        routing_mode: knn
+        knn_k: 8
+        knn_p: 1.0
+        knn_eps: 1e-6
+
+        knn_weighting: gaussian
+        knn_gaussian_sigma: 0.75
+        knn_gaussian_sigma_learnable: true
+
+        value_film: true
+        value_film_pe_dim: 8
+        value_film_pe_w_max: 10.0
+        value_film_hidden: 256
+
+        fusion: gated_sum
+        gated_sum_stream: true
+
+        use_liif_geometry: false
+        rel_pe_dim: 16
+        rel_pe_w_max: 10.0
+
+        coord_pe_dim: 32
+        coord_pe_w_max: 10.0
+        cell_pe_dim: 16
+        cell_pe_w_max: 10.0
+
+
+    loss_cfg:
+      l1_loss: 1.0
+
+optimizers:
+  encoder:
+    name: adamw
+    args: { lr: 1.2904060162971065e-3, betas: [0.9, 0.99], weight_decay: 2.1198363838370177e-3 }
+  decoder: null
+  renderer:
+    name: adam
+    args: { lr: 4.896785692880774e-4, betas: [0.5, 0.9] }

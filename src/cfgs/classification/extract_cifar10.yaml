@@ -1,0 +1,84 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: hip_latent_extract_trainer
+
+datasets:
+  train:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: cifar10
+        args:
+          split: train
+          root_path: ${oc.env:LHNEF_DATA_ROOT,${oc.env:INFD_DATA_ROOT,load}}/cifar10
+          download: true
+          return_label: true
+      resize_inp: 32
+      resize_gt_lb: 32
+      resize_gt_ub: 32
+      final_crop_gt: 32
+      p_whole: 0.0
+      inp_aug:
+        enable: true
+        kind: cifar10
+        pad: 4
+        crop: 32
+        flip_p: 0.5
+    loader:
+      batch_size: 512
+      num_workers: 8
+
+  val:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: cifar10
+        args:
+          split: val
+          root_path: ${oc.env:LHNEF_DATA_ROOT,${oc.env:INFD_DATA_ROOT,load}}/cifar10
+          download: true
+          return_label: true
+      resize_inp: 32
+      resize_gt_lb: 32
+      resize_gt_ub: 32
+      final_crop_gt: 32
+      p_whole: 0.0
+    loader:
+      batch_size: 512
+      num_workers: 8
+
+  test:
+    name: wrapper_cae_coord_value
+    args:
+      dataset:
+        name: cifar10
+        args:
+          split: test
+          root_path: ${oc.env:LHNEF_DATA_ROOT,${oc.env:INFD_DATA_ROOT,load}}/cifar10
+          download: true
+          return_label: true
+      resize_inp: 32
+      resize_gt_lb: 32
+      resize_gt_ub: 32
+      final_crop_gt: 32
+      p_whole: 0.0
+    loader:
+      batch_size: 512
+      num_workers: 8
+
+extract:
+  stage1_ckpt: /ABS/PATH/TO/STAGE1/best-model.pth
+  out_root: from_stage1_ckpt
+  out_subdir: extract/latents_cifar10_tc_cls_aug50
+  stats_mode: token_channel
+  splits: [train, val, test]
+  block: last
+  shard_size: 2048
+  batch_size: 512
+  num_workers: 8
+  save_dtype: float16
+  use_amp: false
+  save_labels: true
+  repeat_per_item: 50
+

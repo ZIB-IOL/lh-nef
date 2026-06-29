@@ -1,0 +1,107 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: latent_classifier_trainer
+
+save_root: from_stage1_dir
+
+stage1_dir: /ABS/PATH/TO/STAGE1_RUN_DIR
+latents_subdir: extract/latents_shapenet16_tc_cls
+
+ckpt_select_metric:
+  name: acc
+  type: max
+
+auto_schedule: true
+train_epochs: 100
+
+eval_every_epochs: 1
+
+use_amp: false
+use_compile: false
+find_unused_parameters: false
+
+ema:
+  enable: false
+  decay: 0.9999
+  use_for_eval: false
+
+datasets:
+  train:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: train
+      normalize: true
+      norm_scale: 0.01
+      dtype: float32
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: true
+      max_items: null
+    loader:
+      batch_size: 256
+      num_workers: 4
+      drop_last: true
+      shuffle: true
+
+  val:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: val
+      normalize: true
+      norm_scale: 0.01
+      dtype: float32
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: true
+      max_items: null
+    loader:
+      batch_size: 512
+      num_workers: 4
+      drop_last: false
+      shuffle: false
+
+  test:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: test
+      normalize: true
+      norm_scale: 0.01
+      dtype: float32
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: true
+      max_items: null
+    loader:
+      batch_size: 512
+      num_workers: 4
+      drop_last: false
+      shuffle: false
+
+model:
+  name: hip_structured_classifier
+  args:
+    token_dim: from_manifest
+    num_classes: from_manifest
+    num_groups: from_manifest
+    tokens_per_group: from_manifest
+    coord_dim: 3
+    d_model: 256
+    depth: 8
+    num_heads: 8
+    mlp_ratio: 4.0
+    dropout: 0.1
+    pos_freq: 1.0
+    use_within_group_token_id_emb: true
+    use_within_group_slot_pos: false
+    use_slot_scale_film: false
+    label_smoothing: 0.0
+    final_dropout: 0.0
+    pool: cls
+
+optimizers:
+  name: adamw
+  args: { lr: 1.535e-3, betas: [0.9, 0.999], weight_decay: 0.2930 }

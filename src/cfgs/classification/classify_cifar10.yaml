@@ -1,0 +1,119 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: latent_classifier_trainer
+
+save_root: from_stage1_dir
+
+stage1_dir: /ABS/PATH/TO/STAGE1_RUN_DIR
+latents_subdir: extract/latents_cifar10_tc_cls_aug50
+
+ckpt_select_metric:
+  name: acc
+  type: max
+
+auto_schedule: true
+train_epochs: 200
+eval_every_epochs: 1
+
+use_amp: false
+use_compile: false
+find_unused_parameters: false
+
+ema:
+  enable: false
+  decay: 0.9999
+  use_for_eval: false
+
+lr_scheduler:
+  name: cosine
+  warmup_iters: 1000
+  min_lr_ratio: 0.0
+
+datasets:
+  train:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: train
+      normalize: true
+      norm_scale: 0.01
+      dtype: float16
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: false
+      shard_cache_size: 2
+      max_items: null
+    loader:
+      batch_size: 1024
+      num_workers: 8
+      drop_last: true
+      shuffle: true
+
+  val:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: val
+      normalize: true
+      norm_scale: 0.01
+      dtype: float16
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: true
+      max_items: null
+    loader:
+      batch_size: 1024
+      num_workers: 8
+      drop_last: false
+      shuffle: false
+
+  test:
+    name: hip_token_latents_labeled
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: test
+      normalize: true
+      norm_scale: 0.01
+      dtype: float16
+      return_grouped: true
+      include_group_scales: true
+      load_in_memory: true
+      max_items: null
+    loader:
+      batch_size: 1024
+      num_workers: 8
+      drop_last: false
+      shuffle: false
+
+model:
+  name: convnext_grouped_classifier
+  args:
+    token_dim: from_manifest
+    num_classes: from_manifest
+    num_groups: from_manifest
+    tokens_per_group: from_manifest
+    coord_dim: 2
+    # Morton voxel grouping G=32, K=4 on 32x32: groups tile as 4x8, slots as 2x2,
+    # final feature map [B, C, 8, 16]. Set to null to auto-infer.
+    group_grid: [4, 8]
+    slot_grid: [2, 2]
+    dims: [192, 384]
+    depths: [4, 4]
+    kernel_size: 3
+    mlp_ratio: 4.0
+    drop_path: 0.2
+    layer_scale_init: 1.0e-6
+    head_dropout: 0.1
+    label_smoothing: 0.1
+    downsample_kernel: 2
+
+    mixup_alpha: 0.5
+    cutmix_alpha: 0.0
+    token_drop_p: 0.1
+    mix_prob: 1.0
+    switch_prob: 0.5
+
+optimizers:
+  name: adamw
+  args: { lr: 1.243e-3, betas: [0.9, 0.999], weight_decay: 0.04152 }

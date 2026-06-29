@@ -1,0 +1,42 @@
+# Frozen-checkpoint inference baselines (Tier 4).
+#
+# Each entry is one checkpoint. The test (tests/test_regression.py)
+# invokes `python src/eval_ckpt.py --run_dir <ckpt> --split <split> --no_vis`,
+# parses `<metric>=<value>` from stdout, and fails if it drifts outside `tol`.
+#
+# To record a baseline:
+#   1) Run eval once:
+#        python src/eval_ckpt.py --run_dir /PATH/TO/RUN_DIR --split test --no_vis
+#   2) Copy the reported metric value into `expected` below.
+#   3) Set `tol` (start tight, e.g. 0.05 dB for PSNR, 1e-4 for MSE).
+#
+# Entries with empty `ckpt` or non-existent paths are skipped, so this file is
+# safe to commit before baselines are filled in.
+
+cifar10:
+  ckpt: /scratch/htc/aurbano/nefs_replearning_runs/imagenet100/imagenet100-ae-20260408-202838-b368
+  split: test
+  metric: psnr
+  expected: 44.5599   # recorded 2026-05-11
+  tol: 0.05           # tolerance in dB
+
+celebahq64:
+  ckpt: ""
+  split: test
+  metric: psnr
+  expected: 0.0
+  tol: 0.05
+
+shapenet16:
+  ckpt: ""
+  split: test
+  metric: iou
+  expected: 0.0
+  tol: 0.005
+
+era5:
+  ckpt: ""
+  split: test
+  metric: mse
+  expected: 0.0
+  tol: 0.0001

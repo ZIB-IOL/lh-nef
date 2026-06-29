@@ -1,0 +1,116 @@
+_base_:
+  - cfgs/env/cluster.yaml
+
+trainer: hip_token_dm_trainer
+
+save_root: from_stage1_dir
+
+stage1_dir: /ABS/PATH/TO/STAGE1_RUN_DIR
+latents_subdir: extract/latents_celebahq64_tc
+
+ckpt_select_metric:
+  name: dm_loss_ema
+  type: min
+
+visualize:
+  resolution: 64
+  ds_samples: 0
+
+sample_vis:
+  enable: true
+  stage1_ckpt: ${stage1_dir}/best-model.pth
+  latents_manifest: ${stage1_dir}/${latents_subdir}/manifest.json
+  latents_split: val
+  input_res: 64
+  render_res: 64
+  n_samples: 16
+  nrow: 8
+  sampler: edm_heun
+  # EDM canonical NFE is 18 (35 evals incl. 2nd-order correction).
+  steps: 18
+  use_ema: true
+  tag: samples
+  out_dir: dm_vis
+
+auto_schedule: true
+train_epochs: 6000
+eval_every_epochs: 100
+# Snapshot every N epochs so FID eval can pick across them.
+save_every_epochs: 500
+
+use_amp: false
+use_compile: false
+find_unused_parameters: false
+
+datasets:
+  train:
+    name: hip_token_latents
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: train
+      normalize: true
+      norm_scale: 1.0
+      dtype: float16
+      flatten_groups: false
+      max_items: null
+    loader:
+      batch_size: 128
+      num_workers: 8
+      drop_last: false
+      shuffle: true
+
+  val:
+    name: hip_token_latents
+    args:
+      manifest_path: ${stage1_dir}/${latents_subdir}/manifest.json
+      split: val
+      normalize: true
+      norm_scale: 1.0
+      dtype: float16
+      flatten_groups: false
+      max_items: null
+    loader:
+      batch_size: 128
+      num_workers: 8
+      drop_last: false
+      shuffle: false
+
+model:
+  name: hip_dit
+  args:
+    num_groups: from_manifest
+    tokens_per_group: from_manifest
+    token_dim: from_manifest
+    # Non-optional for EDM: continuous c_noise input needs Gaussian-Fourier embedder.
+    time_input: edm_cnoise
+    # Per-level width schedule (len = depth+1) + per-block self-attn depth (len = 2*depth+1),
+    # matching the best CelebA-HQ-64 EDM run.
+    hidden_dim: [384, 384, 480, 576]
+    depth: 3
+    self_attend_layers: [1, 2, 4, 4, 4, 2, 1]
+    num_heads: 6
+    widening_factor: 4
+    dropout: 0.0
+    learn_sigma: false
+
+dm:
+  framework: edm
+  # 'auto' = measure global std on a couple of train-split shards at startup. The trainer
+  # persists the resolved numeric value into the saved cfg so sample_trainer can recover it.
+  sigma_data: auto
+  P_mean: -1.2
+  P_std: 1.2
+  sigma_min: 0.002
+  sigma_max: 80.0
+  rho: 7.0
+  ema_enable: true
+  ema_rate: 0.99995
+  # Per-bucket loss diagnostic. Frequency in iters; 0/false disables.
+  diag_enable: true
+  diag_every_iters: 50
+
+optimizers:
+  dm:
+    name: adamw
+    # Paper-celeba LR and weight_decay=0; kept for fair comparison with paper run.
+    args: { lr: 1.53e-4, betas: [0.9, 0.99], weight_decay: 0.0 }

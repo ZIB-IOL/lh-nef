@@ -1,0 +1,22 @@
+# Core dependencies
+torch>=2.0
+torchvision>=0.15
+einops>=0.6
+omegaconf>=2.3
+numpy>=1.24
+pillow>=9.0
+pyyaml>=6.0
+tqdm>=4.60
+wandb>=0.15
+tensorboardX>=2.6
+torch-fidelity>=0.3
+huggingface-hub
+matplotlib
+fairscale
+
+# Spherical coord ordering (for ERA5 / spherical data)
+healpy>=1.16
+s2cell>=1.6
+
+# Tests
+pytest>=8.0
