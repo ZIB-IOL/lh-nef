@@ -1,8 +1,26 @@
-# LH-NeF
+# [Preprint] Neural Field Tokenizations with Hierarchy and Spatial Locality Priors
 
-Locality-preserving Hierarchical Neural Fields.
+[**Alonso Urbano**](https://alonsourbano.com)<sup>1</sup>, [David W. Romero](https://www.davidwromero.xyz)<sup>2</sup>, [Max Zimmer](https://maxzimmer.org)<sup>1</sup>, [Sebastian Pokutta](https://www.pokutta.com)<sup>1,3</sup>
 
-A single coordinate/value autoencoder (Stage 1) covers 2D images, 3D occupancy, and ERA5 spherical fields. Downstream tasks (Stage 2) operate on the frozen latents: diffusion-based generation, classification, and temporal forecasting.
+<sup>1</sup> Zuse Institute Berlin (ZIB) &nbsp; <sup>2</sup> Cartesia AI &nbsp; <sup>3</sup> Technische Universität Berlin
+
+Minimal reproduction codebase for the paper.
+
+## Citation
+
+```bibtex
+@misc{urbano2026neuralfieldtokenizationshierarchy,
+      title={Neural Field Tokenizations with Hierarchy and Spatial Locality Priors}, 
+      author={Alonso Urbano and David W. Romero and Max Zimmer and Sebastian Pokutta},
+      year={2026},
+      eprint={2606.08204},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2606.08204}, 
+}
+```
+
+## Structure 
 
 ```
 src/run.py             single runs
